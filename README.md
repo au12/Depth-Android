@@ -13,7 +13,7 @@ custom tables — on your phone and in **Android Auto**.
 
 ## Install
 
-1. Download `Depth-0.1.0.apk` from [Releases](../../releases) on your phone and open it
+1. Download the latest `Depth-x.y.z.apk` from [Releases](../../releases) on your phone and open it
    (allow installs from your browser/files app when asked).
 2. **If an older Depth build is installed, uninstall it first.** Releases are signed with a
    new key, so Android won't install them over the old Android Studio builds.

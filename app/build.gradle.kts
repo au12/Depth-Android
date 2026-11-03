@@ -19,7 +19,7 @@ fun signingValue(env: String, prop: String): String? =
 // Version comes from the release tag in CI (v1.2.3 → "1.2.3"); versionCode is derived from
 // it (1.2.3 → 10203) so every tagged build upgrades cleanly over the previous one.
 // Untagged builds (and local builds) use the default below.
-val depthVersion: String = System.getenv("DEPTH_VERSION_NAME")?.takeIf { it.isNotBlank() }?.removePrefix("v") ?: "0.1.0"
+val depthVersion: String = System.getenv("DEPTH_VERSION_NAME")?.takeIf { it.isNotBlank() }?.removePrefix("v") ?: "0.1.1"
 val depthVersionCode: Int = depthVersion.split(".", "-").take(3).map { it.toIntOrNull() ?: 0 }
     .let { (it + listOf(0, 0, 0)).take(3) }.let { (a, b, c) -> a * 10000 + b * 100 + c }
     .coerceAtLeast(1)
@@ -114,3 +114,6 @@ dependencies {
     testImplementation(platform("androidx.compose:compose-bom:2024.09.03"))
     testImplementation("androidx.compose.ui:ui-test-junit4")
 }
+
+// CI reads the version from here so a push to main can publish v<version> without a tag.
+tasks.register("printVersion") { doLast { println(depthVersion) } }
