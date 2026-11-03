@@ -18,9 +18,11 @@ fun signingValue(env: String, prop: String): String? =
 
 // Version comes from the release tag in CI (v1.2.3 → "1.2.3"); versionCode is derived from
 // it (1.2.3 → 10203) so every tagged build upgrades cleanly over the previous one.
-val depthVersion: String = (System.getenv("DEPTH_VERSION_NAME") ?: "0.1.0").removePrefix("v")
+// Untagged builds (and local builds) use the default below.
+val depthVersion: String = System.getenv("DEPTH_VERSION_NAME")?.takeIf { it.isNotBlank() }?.removePrefix("v") ?: "0.1.0"
 val depthVersionCode: Int = depthVersion.split(".", "-").take(3).map { it.toIntOrNull() ?: 0 }
     .let { (it + listOf(0, 0, 0)).take(3) }.let { (a, b, c) -> a * 10000 + b * 100 + c }
+    .coerceAtLeast(1)
 
 val releaseStoreFile = signingValue("DEPTH_KEYSTORE_PATH", "storeFile")
 val hasReleaseKey = releaseStoreFile != null && rootProject.file(releaseStoreFile).exists()

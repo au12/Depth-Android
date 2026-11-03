@@ -17,7 +17,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      DEPTH_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '0.0.0-dev' }}
+      # Tag builds take their version from the tag; everything else uses the default in app/build.gradle.kts.
+      DEPTH_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+      APK_NAME: Depth-${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('dev-{0}', github.run_number) }}
       HAS_RELEASE_KEY: ${{ secrets.DEPTH_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
@@ -48,14 +50,14 @@ jobs:
         run: |
           ./gradlew assembleRelease --stacktrace
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/Depth-${DEPTH_VERSION_NAME}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/${APK_NAME}.apk"
 
       - name: Verify Android Auto declarations in the APK
-        run: scripts/verify-apk.sh "dist/Depth-${DEPTH_VERSION_NAME}.apk"
+        run: scripts/verify-apk.sh "dist/${APK_NAME}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Depth-${{ env.DEPTH_VERSION_NAME }}
+          name: ${{ env.APK_NAME }}
           path: dist/*.apk
 
       - name: Publish release
