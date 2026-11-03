@@ -1,0 +1,71 @@
+name: Build
+
+# Every push and PR: run the tests (including the Android Auto discovery/session tests)
+# and build an APK. Pushing a tag like v0.2.0 also publishes a signed GitHub Release —
+# point Obtainium at this repo and your phone picks up each release automatically.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DEPTH_VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '0.0.0-dev' }}
+      HAS_RELEASE_KEY: ${{ secrets.DEPTH_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore release signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.DEPTH_KEYSTORE_BASE64 }}
+        if: env.HAS_RELEASE_KEY == 'true'
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/depth-release.jks"
+          echo "DEPTH_KEYSTORE_PATH=$RUNNER_TEMP/depth-release.jks" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build release APK
+        env:
+          DEPTH_KEYSTORE_PASSWORD: ${{ secrets.DEPTH_KEYSTORE_PASSWORD }}
+          DEPTH_KEY_ALIAS: ${{ secrets.DEPTH_KEY_ALIAS }}
+          DEPTH_KEY_PASSWORD: ${{ secrets.DEPTH_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --stacktrace
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/Depth-${DEPTH_VERSION_NAME}.apk"
+
+      - name: Verify Android Auto declarations in the APK
+        run: scripts/verify-apk.sh "dist/Depth-${DEPTH_VERSION_NAME}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Depth-${{ env.DEPTH_VERSION_NAME }}
+          path: dist/*.apk
+
+      - name: Publish release
+        # Only with the real key — a debug-signed APK can't update an installed release.
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_RELEASE_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.apk --title "Depth $GITHUB_REF_NAME" --generate-notes
+          fi
